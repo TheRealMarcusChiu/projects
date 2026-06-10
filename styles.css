@@ -32,6 +32,7 @@ html, body { background: #0f0c09; }
 
 .eyebrow {
   display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   letter-spacing: 0.34em;
   color: #d8a942;
