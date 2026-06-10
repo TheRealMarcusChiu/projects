@@ -31,11 +31,13 @@ html, body { background: #0f0c09; }
 }
 
 .eyebrow {
+  display: inline-block;
   font-size: 12px;
   letter-spacing: 0.34em;
   color: #d8a942;
   text-transform: uppercase;
-  margin-bottom: 38px;
+  text-decoration: none;
+  margin-bottom: 40px;
 }
 
 .title {
