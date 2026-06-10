@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./script.js"></script>
+<script src="./data.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500;1,6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+</helmet>
+
+<div class="page">
+  <div class="container">
+
+    <!-- ===== HEADER ===== -->
+    <header class="site-header">
+      <div class="eyebrow">Marcus&nbsp;Chiu&nbsp;&nbsp;·&nbsp;&nbsp;Software</div>
+      <h1 class="title">Things I've built.</h1>
+      <p class="intro">A small gallery of experiments, tools, and visualizations. Each tile is a live site — click any one to open it in a new tab.</p>
+    </header>
+
+    <!-- ===== FILTER BAR ===== -->
+    <div class="filter-bar">
+      <div class="filter-buttons">
+        <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+          <button type="button" onClick="{{ f.onClick }}" style="{{ f.style }}" style-hover="{{ f.hoverStyle }}">{{ f.label }}</button>
+        </sc-for>
+      </div>
+      <div class="count-label">{{ countLabel }}</div>
+    </div>
+
+    <!-- ===== GALLERY GRID ===== -->
+    <div class="grid">
+      <sc-for list="{{ projects }}" as="p" hint-placeholder-count="9">
+        <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer" class="card">
+
+          <!-- screenshot, with placeholder fallback when `img` is unset -->
+          <div class="card-shot">
+            <sc-if value="{{ p.img }}">
+              <img class="card-img" src="{{ p.img }}" alt="{{ p.title }}" loading="lazy">
+            </sc-if>
+            <sc-if value="{{ !p.img }}">
+              <div class="card-shot-label">{{ p.shot }}<br><span class="card-shot-sub">screenshot</span></div>
+            </sc-if>
+            <span class="card-num">{{ p.num }}</span>
+            <span class="card-tag">{{ p.tag }}</span>
+          </div>
+
+          <!-- body -->
+          <div class="card-body">
+            <h3 class="card-title">{{ p.title }}</h3>
+            <p class="card-caption">{{ p.caption }}</p>
+            <div class="card-meta">
+              <span class="card-domain">{{ p.domain }}</span>
+              <span class="card-arrow">↗</span>
+            </div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="site-footer">
+      <div class="footer-copy">© 2026 Marcus Chiu</div>
+      <a href="https://marcuschiu.com" target="_blank" rel="noopener noreferrer" class="footer-link">marcuschiu.com ↗</a>
+    </footer>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { active: 'all' };
+
+  // Content lives in data.js (loaded before boot) and is read off `window`.
+  allProjects = window.PROJECTS || [];
+  filterDefs = window.FILTERS || [];
+
+  renderVals() {
+    const active = this.state.active;
+    const projects = active === 'all' ? this.allProjects : this.allProjects.filter(p => p.cat === active);
+
+    const baseBtn = {
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: '12px',
+      letterSpacing: '0.16em',
+      textTransform: 'uppercase',
+      padding: '10px 16px',
+      borderRadius: '5px',
+      cursor: 'pointer',
+      background: 'transparent',
+      transition: 'all 0.2s ease',
+    };
+
+    const filters = this.filterDefs.map(f => {
+      const isActive = f.key === active;
+      const count = f.key === 'all' ? this.allProjects.length : this.allProjects.filter(p => p.cat === f.key).length;
+      return {
+        label: f.label,
+        onClick: () => this.setState({ active: f.key }),
+        style: {
+          ...baseBtn,
+          border: isActive ? '1px solid #d8a942' : '1px solid #29221a',
+          color: isActive ? '#ece1cf' : '#8c8170',
+        },
+        hoverStyle: isActive ? {} : { borderColor: '#4a3c1d', color: '#c9bca6' },
+        count,
+      };
+    });
+
+    const shown = projects.length;
+    const total = this.allProjects.length;
+    const countLabel = active === 'all' ? `${total} projects` : `${shown} of ${total}`;
+
+    return { projects, filters, countLabel };
+  }
+}
+</script>
+</body>
+</html>
