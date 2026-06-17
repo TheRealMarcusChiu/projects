@@ -91,6 +91,8 @@ class Component extends DCLogic {
     this.p = 0; this.targetP = 0;
     this._mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     this.N = window.PROJECTS.length;
+    this.HAS_CREDITS = true;                                  // hidden colophon panel past the last project
+    this.TRAVEL = this.N - 1 + (this.HAS_CREDITS ? 1 : 0);    // camera spans this many gaps over scroll 0..1
     this.PROJECTS = window.PROJECTS.map((p, i) => ({
       n: String(i + 1).padStart(2, '0'),
       id: p.id,
@@ -137,6 +139,9 @@ class Component extends DCLogic {
     window.addEventListener('pointermove', this._onMove, { passive: true });
     this._onResize = () => this.resizeThree();
     window.addEventListener('resize', this._onResize);
+    this._onKey = (e) => this.onKey(e);
+    window.addEventListener('keydown', this._onKey);
+    this.setupEasterEggs();
     this.buildDOM();
     this.tryInitThree();
   }
@@ -145,11 +150,155 @@ class Component extends DCLogic {
     window.removeEventListener('scroll', this._onScroll);
     window.removeEventListener('pointermove', this._onMove);
     window.removeEventListener('resize', this._onResize);
+    if (this._onKey) window.removeEventListener('keydown', this._onKey);
+    if (this._scrollRAF) cancelAnimationFrame(this._scrollRAF);
     if (this.canvas && this._onCanvasClick) this.canvas.removeEventListener('click', this._onCanvasClick);
     if (this.canvas && this._onCanvasHover) this.canvas.removeEventListener('pointermove', this._onCanvasHover);
     if (this._bootT) clearTimeout(this._bootT);
     if (this._raf) cancelAnimationFrame(this._raf);
     if (this._renderer) this._renderer.dispose && this._renderer.dispose();
+  }
+
+  // ───────────────────────── easter eggs ─────────────────────────
+  setupEasterEggs() {
+    if (this._eggsReady) return;
+    this._eggsReady = true;
+    this._konami = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
+    this._kIdx = 0;
+    this._typeBuf = '';
+
+    // styled console greeting + command surface
+    const gold = 'color:#c9a557', dim = 'color:#5f594d', body = 'color:#ad9e7f';
+    console.log('%c  M C  %c·%c  selected work · 2026', 'color:#0e0d09;background:#c9a557;font-weight:700;letter-spacing:3px;padding:6px 10px;border-radius:4px;', dim, 'color:#8d6e2e;letter-spacing:2px;');
+    console.log('%cYou opened the console. Nicely done.%c  Type %cmc.help()%c for a few tricks.', body, dim, gold + ';font-weight:700', dim);
+
+    const self = this;
+    window.mc = {
+      help() {
+        console.log('%cmc.fly()%c     — auto-cruise the whole gallery, hands-free', gold + ';font-weight:700', body);
+        console.log('%cmc.stop()%c    — stop the cruise', gold + ';font-weight:700', body);
+        console.log('%cmc.credits()%c — glide to the hidden colophon at the end', gold + ';font-weight:700', body);
+        console.log('%c…and a couple of things you\'ll have to find yourself.', dim);
+        return undefined;
+      },
+      fly() { self.flyThrough(); return '✈ cruising — mc.stop() to land'; },
+      stop() { self.stopFly(); return '✦ landed'; },
+      credits() { self.smoothScrollTo(self.scrollMax(), 2600); return '✦ rolling credits'; },
+    };
+  }
+
+  scrollMax() {
+    const doc = document.scrollingElement || document.documentElement;
+    return Math.max(0, doc.scrollHeight - window.innerHeight);
+  }
+
+  onKey(e) {
+    const k = e.key && e.key.length === 1 ? e.key.toLowerCase() : (e.key || '').toLowerCase();
+
+    // Konami → cinema mode
+    if (k === this._konami[this._kIdx]) {
+      this._kIdx++;
+      if (this._kIdx === this._konami.length) { this._kIdx = 0; this.toggleCinema(); }
+    } else {
+      this._kIdx = (k === this._konami[0]) ? 1 : 0;
+    }
+
+    // type "marcus" → particle swarm
+    if (k.length === 1 && k >= 'a' && k <= 'z') {
+      this._typeBuf = (this._typeBuf + k).slice(-6);
+      if (this._typeBuf === 'marcus') { this._typeBuf = ''; this.triggerSwarm(); }
+    }
+  }
+
+  toggleCinema() {
+    this.ensureCinemaBars();
+    this._cinema = !this._cinema;
+    const h = this._cinema ? '8.5vh' : '0';
+    this._barTop.style.height = h;
+    this._barBottom.style.height = h;
+  }
+
+  ensureCinemaBars() {
+    if (this._barTop) return;
+    const base = 'position:fixed;left:0;right:0;height:0;background:#000;z-index:60;pointer-events:none;transition:height .7s cubic-bezier(.7,0,.25,1);';
+    this._barTop = document.createElement('div');
+    this._barTop.style.cssText = base + 'top:0;';
+    this._barBottom = document.createElement('div');
+    this._barBottom.style.cssText = base + 'bottom:0;';
+    (this.root || document.body).appendChild(this._barTop);
+    (this.root || document.body).appendChild(this._barBottom);
+  }
+
+  triggerSwarm() {
+    if (this._pUniforms) this._pUniforms.uSwarm.value = 1;
+  }
+
+  // ───────────────────────── smooth programmatic scroll ─────────────────────────
+  smoothScrollTo(top, duration) {
+    if (this._scrollRAF) cancelAnimationFrame(this._scrollRAF);
+    const doc = document.scrollingElement || document.documentElement;
+    const start = doc.scrollTop, delta = top - start, t0 = performance.now();
+    const ease = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    const step = (now) => {
+      const x = duration <= 0 ? 1 : Math.min((now - t0) / duration, 1);
+      window.scrollTo(0, start + delta * ease(x));
+      if (x < 1) this._scrollRAF = requestAnimationFrame(step); else this._scrollRAF = null;
+    };
+    this._scrollRAF = requestAnimationFrame(step);
+  }
+
+  flyThrough() {
+    const max = this.scrollMax();
+    this.smoothScrollTo(0, 0);
+    setTimeout(() => this.smoothScrollTo(max, 16000), 80);
+  }
+
+  stopFly() {
+    if (this._scrollRAF) { cancelAnimationFrame(this._scrollRAF); this._scrollRAF = null; }
+  }
+
+  // ───────────────────────── hidden colophon texture ─────────────────────────
+  drawCredits(c, x) {
+    x.clearRect(0, 0, 1024, 640);
+    x.fillStyle = '#100d08'; x.fillRect(0, 0, 1024, 640);
+    const g = x.createRadialGradient(512, 200, 30, 512, 200, 760);
+    g.addColorStop(0, 'rgba(201,165,87,0.20)'); g.addColorStop(0.5, 'rgba(201,165,87,0.05)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 1024, 640);
+    x.fillStyle = 'rgba(237,225,207,0.015)';
+    for (let yy = 0; yy < 640; yy += 4) x.fillRect(0, yy, 1024, 1);
+    x.strokeStyle = 'rgba(141,110,46,0.6)'; x.lineWidth = 2; x.strokeRect(30, 30, 964, 580);
+    x.strokeStyle = 'rgba(201,165,87,0.9)'; x.lineWidth = 2;
+    const ck = (cx, cy, dx, dy) => { x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + dx, cy); x.moveTo(cx, cy); x.lineTo(cx, cy + dy); x.stroke(); };
+    ck(30, 30, 26, 26); ck(994, 30, -26, 26); ck(30, 610, 26, -26); ck(994, 610, -26, -26);
+    x.textBaseline = 'alphabetic';
+    x.fillStyle = '#8d6e2e'; x.font = '500 21px "JetBrains Mono", monospace';
+    x.fillText('// COLOPHON', 64, 120);
+    x.shadowColor = 'rgba(0,0,0,0.65)'; x.shadowBlur = 14;
+    x.fillStyle = 'rgba(237,225,207,0.96)'; x.font = '600 italic 84px "Newsreader", serif';
+    x.fillText('You scrolled', 60, 230);
+    x.fillText('all the way.', 60, 320);
+    x.shadowBlur = 0;
+    x.fillStyle = 'rgba(173,163,144,0.95)'; x.font = '500 23px "JetBrains Mono", monospace';
+    const lines = ['Three.js · WebGL', 'Vanilla DCLogic components', 'Newsreader · JetBrains Mono'];
+    lines.forEach((t, i) => x.fillText(t, 64, 410 + i * 40));
+    x.fillStyle = '#d8b873'; x.font = '500 27px "JetBrains Mono", monospace';
+    x.fillText('Designed & built by Marcus Chiu', 64, 580);
+  }
+
+  makeCreditsTexture() {
+    const THREE = window.THREE;
+    const c = document.createElement('canvas');
+    c.width = 1024; c.height = 640;
+    const ctx = c.getContext('2d');
+    this.drawCredits(c, ctx);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = this._maxAniso || 4;
+    // redraw once fonts are ready so the serif/mono render crisply
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => { try { this.drawCredits(c, ctx); t.needsUpdate = true; if (this._renderer) this.renderFrame(this._pUniforms ? this._pUniforms.uTime.value : 0); } catch (e) {} });
+    }
+    return t;
   }
 
   // ───────────────────────── dynamic DOM build ─────────────────────────
@@ -163,7 +312,8 @@ class Component extends DCLogic {
     this._domBuilt = true;
 
     let sp = '';
-    for (let i = 0; i < this.N; i++) sp += '<div style="height:100vh;scroll-snap-align:start;"></div>';
+    const sections = this.N + (this.HAS_CREDITS ? 1 : 0);
+    for (let i = 0; i < sections; i++) sp += '<div style="height:100vh;scroll-snap-align:start;"></div>';
     this.spacerEl.innerHTML = sp;
 
     this.overlayEl.innerHTML = this.PROJECTS.map((p, i) => this.blockHTML(p, i)).join('');
@@ -305,10 +455,10 @@ class Component extends DCLogic {
     pg.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     pg.setAttribute('aSize', new THREE.BufferAttribute(sz, 1));
     pg.setAttribute('aTint', new THREE.BufferAttribute(tint, 1));
-    this._pUniforms = { uTime: { value: 0 }, uPR: { value: Math.min(window.devicePixelRatio || 1, 2) }, uA: { value: new THREE.Color(0x8d6e2e) }, uB: { value: new THREE.Color(0xf0e6d6) } };
+    this._pUniforms = { uTime: { value: 0 }, uPR: { value: Math.min(window.devicePixelRatio || 1, 2) }, uA: { value: new THREE.Color(0x8d6e2e) }, uB: { value: new THREE.Color(0xf0e6d6) }, uSwarm: { value: 0 } };
     const pmat = new THREE.ShaderMaterial({
       uniforms: this._pUniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
-      vertexShader: 'attribute float aSeed;attribute float aSize;attribute float aTint;uniform float uTime;uniform float uPR;uniform vec3 uA;uniform vec3 uB;varying vec3 vC;varying float vAl;void main(){vec3 p=position;float t=uTime*0.3+aSeed*6.2831;p.x+=sin(t)*2.2;p.y+=cos(t*0.8)*1.8;vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;float d=-mv.z;gl_PointSize=aSize*uPR*(240.0/max(d,1.0));vC=mix(uA,uB,smoothstep(0.6,1.0,aTint));vAl=smoothstep(1.0,16.0,d)*smoothstep(120.0,46.0,d);}',
+      vertexShader: 'attribute float aSeed;attribute float aSize;attribute float aTint;uniform float uTime;uniform float uPR;uniform vec3 uA;uniform vec3 uB;uniform float uSwarm;varying vec3 vC;varying float vAl;void main(){vec3 p=position;float t=uTime*0.3+aSeed*6.2831;float sw=1.0+uSwarm*5.0;p.x+=sin(t)*2.2*sw;p.y+=cos(t*0.8)*1.8*sw;p*=(1.0-uSwarm*0.55);vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;float d=-mv.z;gl_PointSize=aSize*uPR*(240.0/max(d,1.0))*(1.0+uSwarm*1.5);vC=mix(uA,uB,smoothstep(0.6,1.0,aTint));vAl=smoothstep(1.0,16.0,d)*smoothstep(120.0,46.0,d);}',
       fragmentShader: 'varying vec3 vC;varying float vAl;void main(){vec2 d=gl_PointCoord-0.5;float a=smoothstep(0.5,0.0,length(d));a*=a;gl_FragColor=vec4(vC,a*vAl);}'
     });
     scene.add(new THREE.Points(pg, pmat));
@@ -337,6 +487,20 @@ class Component extends DCLogic {
       glow.rotation.y = this.PANEL_ROT;
       scene.add(glow);
       this._panels.push(mesh);
+    }
+
+    if (this.HAS_CREDITS) {
+      const ctex = this.makeCreditsTexture();
+      const cmat = new THREE.MeshBasicMaterial({ map: ctex, fog: true });
+      const cmesh = new THREE.Mesh(geo, cmat);
+      cmesh.position.set(this.PANEL_X, 0, -this.N * this.SPACING);
+      cmesh.rotation.y = this.PANEL_ROT;
+      scene.add(cmesh);
+      const cglow = new THREE.Mesh(new THREE.PlaneGeometry(this.PANEL_W + 1.4, this.PANEL_H + 1.4), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xc9a557), transparent: true, opacity: 0.12, fog: true }));
+      cglow.position.set(this.PANEL_X, 0, -this.N * this.SPACING - 0.3);
+      cglow.rotation.y = this.PANEL_ROT;
+      scene.add(cglow);
+      this._creditsPanel = cmesh;
     }
 
     this.resizeThree();
@@ -384,7 +548,7 @@ class Component extends DCLogic {
   }
 
   renderFrame(time) {
-    const activeFloat = this.p * (this.N - 1);
+    const activeFloat = this.p * this.TRAVEL;
     const cam = this._camera;
     const camZ = this.VIEW_DIST - activeFloat * this.SPACING;
     cam.position.z = camZ;
@@ -399,6 +563,10 @@ class Component extends DCLogic {
         mesh.rotation.y = this.PANEL_ROT + Math.sin(time * 0.45 + i) * 0.025;
       }
     }
+    if (this._creditsPanel) {
+      this._creditsPanel.position.y = Math.sin(time * 0.7 + 99) * 0.22;
+      this._creditsPanel.rotation.y = this.PANEL_ROT + Math.sin(time * 0.45 + 9) * 0.025;
+    }
     this.updateOverlays(activeFloat);
     this._renderer.render(this._scene, this._camera);
   }
@@ -412,7 +580,8 @@ class Component extends DCLogic {
   loop() {
     this._raf = requestAnimationFrame(() => this.loop());
     const dt = Math.min(this._clock.getDelta(), 0.05);
-    this._pUniforms.uTime.value += dt;
+    this._pUniforms.uTime.value += dt * (this._cinema ? 0.4 : 1);
+    this._pUniforms.uSwarm.value += (0 - this._pUniforms.uSwarm.value) * 0.02;
     this.p += (this.targetP - this.p) * 0.09;
     const m = this._mouse;
     m.x += (m.tx - m.x) * 0.05; m.y += (m.ty - m.y) * 0.05;
