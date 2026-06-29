@@ -1,0 +1,69 @@
+# ────────────────────────────────────────────────────────────────────────
+# systemd unit for the "Projects in 3D" admin backend (server/server.js)
+#
+# Target: a Proxmox LXC running Ubuntu (22.04 / 24.04).
+#
+# Deploy layout (matches server/update-local.sh):
+#   /root/projects/                ← git repo root (index.html, content/, …)
+#   /root/projects/server/server.js
+#   /root/projects/server/projects-admin.service   ← this file
+#
+# ── Install ─────────────────────────────────────────────────────────────
+#   1. Get Node (LTS) inside the container:
+#        apt update && apt install -y nodejs   # or use nodesource for a newer LTS
+#   2. Clone the repo:
+#        git clone <your-repo> /root/projects
+#   3. Install this unit:
+#        cp /root/projects/server/projects-admin.service /etc/systemd/system/
+#        systemctl daemon-reload
+#        systemctl enable --now projects-admin.service
+#   4. Check it:
+#        systemctl status projects-admin
+#        journalctl -u projects-admin -f
+#        curl http://localhost:3000/api/health
+#
+# Edit User=, WorkingDirectory=, ExecStart= and Environment=PORT to match
+# your setup. The admin UI then points its "Server" endpoint at this host,
+# e.g. http://<container-ip>:3000
+# ────────────────────────────────────────────────────────────────────────
+
+[Unit]
+Description=Projects in 3D — admin backend (Node)
+Documentation=file:/root/projects/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/projects
+# Use an absolute path to node if `which node` differs (e.g. /usr/local/bin/node).
+ExecStart=/usr/bin/node /root/projects/server/server.js
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# ── restart policy ──
+Restart=on-failure
+RestartSec=3
+# Don't give up after repeated quick failures.
+StartLimitIntervalSec=0
+
+# ── logging ──
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=projects-admin
+
+# ── sandboxing / hardening ──
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# Only allow common socket families (IPv4/IPv6/Unix).
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

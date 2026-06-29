@@ -5,4 +5,3 @@ ssh my-websites << EOF
   git pull
   systemctl restart projects-admin.service
 EOF
-
