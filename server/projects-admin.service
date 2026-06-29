@@ -20,11 +20,11 @@
 #   4. Check it:
 #        systemctl status projects-admin
 #        journalctl -u projects-admin -f
-#        curl http://localhost:3000/api/health
+#        curl http://localhost:9005/api/health
 #
 # Edit User=, WorkingDirectory=, ExecStart= and Environment=PORT to match
-# your setup. The admin UI then points its "Server" endpoint at this host,
-# e.g. http://<container-ip>:3000
+# your setup. It listens on all interfaces (HOST=0.0.0.0) so the admin UI can
+# reach it remotely — point its "Server" endpoint at http://<container-ip>:9005
 # ────────────────────────────────────────────────────────────────────────
 
 [Unit]
@@ -40,7 +40,9 @@ WorkingDirectory=/root/projects
 # Absolute path to node (from `which node`); nvm installs live under ~/.nvm.
 ExecStart=/root/.nvm/versions/node/v24.16.0/bin/node /root/projects/server/server.js
 Environment=NODE_ENV=production
-Environment=PORT=3000
+# Listen on all interfaces (remote connections) on port 9005.
+Environment=HOST=0.0.0.0
+Environment=PORT=9005
 
 # ── restart policy ──
 Restart=on-failure

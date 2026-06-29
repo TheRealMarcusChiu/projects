@@ -38,6 +38,8 @@ const IMAGES_DIR  = path.join(CONTENT_DIR, 'images');
 const MANIFEST    = path.join(CONTENT_DIR, 'manifest.js');
 const COVERS      = path.join(CONTENT_DIR, 'covers.js');
 const PORT        = process.env.PORT || 3000;
+// Bind address: 0.0.0.0 accepts remote connections; set HOST=127.0.0.1 for local-only.
+const HOST        = process.env.HOST || '0.0.0.0';
 // Auto-commit + push every edit to the git remote. Disable with GIT_SYNC=0.
 const GIT_SYNC    = process.env.GIT_SYNC !== '0';
 const GIT_REMOTE  = process.env.GIT_REMOTE || 'origin';
@@ -324,9 +326,10 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res, pathname);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log('\n  Projects in 3D — admin server');
   console.log('  ───────────────────────────────');
+  console.log('  Listening on ' + HOST + ':' + PORT);
   console.log('  Site : http://localhost:' + PORT + '/');
   console.log('  API  : http://localhost:' + PORT + '/api/projects');
   console.log('  Editing content/ in: ' + ROOT + '\n');
