@@ -14,7 +14,7 @@ var PROJECTS = [
   {
     "id": "my-room",
     "title": "My Room in 3D",
-    "description": "An explorable 3D model of my room, built in the browser. TEST",
+    "description": "An explorable 3D model of my room, built in the browser.",
     "url": "https://my-room.marcuschiu.com",
     "displayUrl": "my-room.marcuschiu.com",
     "cover": "./images/my-room.png",
