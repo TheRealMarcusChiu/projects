@@ -37,8 +37,8 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/root/projects
-# Use an absolute path to node if `which node` differs (e.g. /usr/local/bin/node).
-ExecStart=/usr/bin/node /root/projects/server/server.js
+# Absolute path to node (from `which node`); nvm installs live under ~/.nvm.
+ExecStart=/root/.nvm/versions/node/v24.16.0/bin/node /root/projects/server/server.js
 Environment=NODE_ENV=production
 Environment=PORT=3000
 
