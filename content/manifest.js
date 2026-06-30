@@ -145,8 +145,9 @@ var PROJECTS = [
       "SVG",
       "JavaScript"
     ],
-    "dateCreated": "2021-01-30",
-    "accent": "#b15c97"
+    "dateCreated": "2022-01-30",
+    "accent": "#b15c97",
+    "hidden": false
   },
   {
     "id": "fisher-information",
