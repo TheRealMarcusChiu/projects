@@ -85,9 +85,9 @@ systemctl enable --now projects-admin.service
 journalctl -u projects-admin -f          # follow logs
 ```
 
-It auto-starts on boot, restarts on failure, and is hardened. The file's header
-has the full step-by-step. Point the admin UI's **Server** endpoint at
-`http://<container-ip>:3000`.
+It auto-starts on boot, restarts on failure, and is hardened. It listens on all
+interfaces (`HOST=0.0.0.0`) on port **9005** by default, so point the admin
+UI's **Server** endpoint at `http://<container-ip>:9005`.
 
 To redeploy after pushing changes, run **`server/update-local.sh`** (it SSHes
 in, `git pull`s, and restarts the service).
