@@ -125,8 +125,9 @@ var PROJECTS = [
       "Java",
       "Spring Boot"
     ],
-    "dateCreated": "2018-08-19",
-    "accent": "#bd7a44"
+    "dateCreated": "2025-07-30",
+    "accent": "#bd7a44",
+    "hidden": false
   },
   {
     "id": "d3",
