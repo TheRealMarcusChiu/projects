@@ -86,8 +86,9 @@ var PROJECTS = [
       "NLP",
       "JavaScript"
     ],
-    "dateCreated": "2020-11-08",
-    "accent": "#8a6fc4"
+    "dateCreated": "2025-08-15",
+    "accent": "#8a6fc4",
+    "hidden": false
   },
   {
     "id": "tetris",
