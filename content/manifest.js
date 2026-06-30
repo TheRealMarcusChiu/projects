@@ -165,8 +165,9 @@ var PROJECTS = [
       "Statistics",
       "Visualization"
     ],
-    "dateCreated": "2022-12-05",
-    "accent": "#5f7fc0"
+    "dateCreated": "2021-12-23",
+    "accent": "#5f7fc0",
+    "hidden": false
   }
 ];
 
