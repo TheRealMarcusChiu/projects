@@ -27,7 +27,7 @@ var PROJECTS = [
       "WebGL",
       "JavaScript"
     ],
-    "dateCreated": "2023-03-14",
+    "dateCreated": "2025-09-17",
     "accent": "#b9883f",
     "hidden": false
   },
