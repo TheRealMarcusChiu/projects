@@ -312,7 +312,7 @@ class Component extends DCLogic {
       : '';
     const actBtn = "font-family:inherit;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:#ad9e7f;background:rgba(141,110,46,0.08);border:1px solid rgba(141,110,46,0.42);border-radius:7px;padding:8px 13px;cursor:pointer;";
     const adminRow = this.admin
-      ? '<div style="display:flex;gap:8px;margin-top:20px;pointer-events:auto;">' +
+      ? '<div style="display:flex;gap:8px;margin-top:20px;pointer-events:inherit;">' +
           '<button class="adm-act" data-admin-edit="' + i + '" style="' + actBtn + '">Edit</button>' +
           '<button class="adm-act" data-admin-hide="' + i + '" style="' + actBtn + '">' + (p.hidden ? 'Show' : 'Hide') + '</button>' +
           '<button class="adm-act danger" data-admin-del="' + i + '" style="' + actBtn + '">Delete</button>' +
