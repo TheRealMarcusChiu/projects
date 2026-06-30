@@ -13,22 +13,18 @@
 var PROJECTS = [
   {
     "id": "my-room",
-    "title": "My Room in 3D",
-    "description": "An explorable 3D model of my room, built in the browser.",
-    "url": "https://my-room.marcuschiu.com",
-    "displayUrl": "my-room.marcuschiu.com",
+    "title": "Untitled",
+    "description": "",
+    "url": "",
+    "displayUrl": "",
     "cover": "./images/my-room.png",
     "coverW": 3024,
     "coverH": 1888,
-    "tag": "3D",
-    "category": "interactive",
-    "tech": [
-      "Three.js",
-      "WebGL",
-      "JavaScript"
-    ],
-    "dateCreated": "2023-03-14",
-    "accent": "#b9883f",
+    "tag": "",
+    "category": "experiments",
+    "tech": [],
+    "dateCreated": "2026-06-30",
+    "accent": "#8d6e2e",
     "hidden": false
   },
   {
