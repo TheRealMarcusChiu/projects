@@ -147,7 +147,7 @@ class Component extends DCLogic {
         adminBarRef: (el) => { if (el && !el._b) { el._b = 1; this.adminBar = el; el.addEventListener('click', (e) => this.onAdminBar(e)); } },
         statusRef: (el) => { this.statusEl = el; this.refreshStatus(); },
         fabRef: (el) => { if (el && !el._b) { el._b = 1; this.fab = el; el.addEventListener('click', () => this.openEditor(null)); } },
-        modalRef: (el) => { if (el && !el._b) { el._b = 1; this.modalEl = el; el.addEventListener('click', (e) => { if (e.target === el) this.closeModal(); }); } },
+        modalRef: (el) => { if (el && !el._b) { el._b = 1; this.modalEl = el; el.addEventListener('click', (e) => { if (e.target === el) { this.closeModal(); return; } if (this._modalClick) this._modalClick(e); }); } },
       };
     }
     return this._refs;
@@ -229,7 +229,20 @@ class Component extends DCLogic {
     window.addEventListener('resize', this._onResize);
     this._onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); this.toggleAdmin(); return; }
-      if (e.key === 'Escape') this.closeModal();
+      if (e.key === 'Escape') { this.closeModal(); return; }
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+      // Konami code → hyperspace warp
+      const KON = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      this._kon = this._kon || 0;
+      if (k === KON[this._kon]) { this._kon++; if (this._kon === KON.length) { this._kon = 0; this.doWarp(); } }
+      else { this._kon = (k === KON[0]) ? 1 : 0; }
+      // type "marcus" → particle name reveal
+      if (e.key.length === 1 && /[a-z]/i.test(e.key)) {
+        this._typed = ((this._typed || '') + e.key.toLowerCase()).slice(-6);
+        if (this._typed === 'marcus') { this._typed = ''; this.triggerMarcus(); }
+      }
     };
     window.addEventListener('keydown', this._onKey);
     this.buildDOM();
@@ -480,13 +493,14 @@ class Component extends DCLogic {
       r.onload = () => { this._pendingCover = r.result; preview.style.backgroundImage = "url('" + String(r.result).replace(/'/g, "%27") + "')"; };
       r.readAsDataURL(f);
     });
-    m.addEventListener('click', (e) => {
+    // single swappable handler (bound once in modalRef) — never stacks across opens
+    this._modalClick = (e) => {
       const b = e.target.closest('[data-x]'); if (!b) return;
       const x = b.getAttribute('data-x');
       if (x === 'close') this.closeModal();
       else if (x === 'save') this.saveEditor();
       else if (x === 'delete') { const idx = this.PROJECTS.findIndex((q) => q.id === this._editId); if (idx >= 0) { this.closeModal(); this.deleteProject(idx); } }
-    });
+    };
   }
 
   async saveEditor() {
@@ -556,7 +570,7 @@ class Component extends DCLogic {
     this.showModal(card);
     const m = this.modalEl;
     const testEl = m.querySelector('[data-test]');
-    m.addEventListener('click', async (e) => {
+    this._modalClick = async (e) => {
       const b = e.target.closest('[data-x]'); if (!b) return;
       const x = b.getAttribute('data-x');
       const ep = m.querySelector('[data-f="endpoint"]').value.trim();
@@ -577,7 +591,7 @@ class Component extends DCLogic {
           if (x === 'savecfg') { this.endpoint = base; if (window.localStorage) localStorage.setItem('p3d_endpoint', base); this.refreshStatus(); }
         }
       }
-    });
+    };
   }
 
   showModal(html) {
@@ -587,6 +601,7 @@ class Component extends DCLogic {
   }
   closeModal() {
     if (!this.modalEl) return;
+    this._modalClick = null;
     this.modalEl.style.display = 'none';
     this.modalEl.innerHTML = '';
   }
@@ -689,10 +704,12 @@ class Component extends DCLogic {
 
     const N = 3400, L = (Math.max(this.N, 1) - 1) * this.SPACING + 80;
     const pos = new Float32Array(N * 3), seed = new Float32Array(N), sz = new Float32Array(N), tint = new Float32Array(N);
+    const tgt = new Float32Array(N * 3), morphFlag = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       pos[i * 3] = (Math.random() * 2 - 1) * 60;
       pos[i * 3 + 1] = (Math.random() * 2 - 1) * 34;
       pos[i * 3 + 2] = 30 - Math.random() * (L + 120);
+      tgt[i * 3] = pos[i * 3]; tgt[i * 3 + 1] = pos[i * 3 + 1]; tgt[i * 3 + 2] = pos[i * 3 + 2];
       seed[i] = Math.random(); sz[i] = Math.random() * 1.5 + 0.4; tint[i] = Math.pow(Math.random(), 2.2);
     }
     const pg = new THREE.BufferGeometry();
@@ -700,13 +717,16 @@ class Component extends DCLogic {
     pg.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     pg.setAttribute('aSize', new THREE.BufferAttribute(sz, 1));
     pg.setAttribute('aTint', new THREE.BufferAttribute(tint, 1));
-    this._pUniforms = { uTime: { value: 0 }, uPR: { value: Math.min(window.devicePixelRatio || 1, 2) }, uA: { value: new THREE.Color(0x8d6e2e) }, uB: { value: new THREE.Color(0xf0e6d6) } };
+    pg.setAttribute('aTarget', new THREE.BufferAttribute(tgt, 3));
+    pg.setAttribute('aMorph', new THREE.BufferAttribute(morphFlag, 1));
+    this._pGeo = pg; this._aTarget = tgt; this._aMorph = morphFlag; this._pCount = N;
+    this._pUniforms = { uTime: { value: 0 }, uPR: { value: Math.min(window.devicePixelRatio || 1, 2) }, uA: { value: new THREE.Color(0x8d6e2e) }, uB: { value: new THREE.Color(0xf0e6d6) }, uMorph: { value: 0 }, uWarp: { value: 0 } };
     const pmat = new THREE.ShaderMaterial({
       uniforms: this._pUniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
-      vertexShader: 'attribute float aSeed;attribute float aSize;attribute float aTint;uniform float uTime;uniform float uPR;uniform vec3 uA;uniform vec3 uB;varying vec3 vC;varying float vAl;void main(){vec3 p=position;float t=uTime*0.3+aSeed*6.2831;p.x+=sin(t)*2.2;p.y+=cos(t*0.8)*1.8;vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;float d=-mv.z;gl_PointSize=aSize*uPR*(240.0/max(d,1.0));vC=mix(uA,uB,smoothstep(0.6,1.0,aTint));vAl=smoothstep(1.0,16.0,d)*smoothstep(120.0,46.0,d);}',
+      vertexShader: 'attribute float aSeed;attribute float aSize;attribute float aTint;attribute vec3 aTarget;attribute float aMorph;uniform float uTime;uniform float uPR;uniform vec3 uA;uniform vec3 uB;uniform float uMorph;uniform float uWarp;varying vec3 vC;varying float vAl;void main(){vec3 flow=position;float t=uTime*0.3+aSeed*6.2831;float mph=uMorph*aMorph;flow.x+=sin(t)*2.2*(1.0-mph);flow.y+=cos(t*0.8)*1.8*(1.0-mph);vec3 p=mix(flow,aTarget,mph);vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;float d=-mv.z;gl_PointSize=aSize*uPR*(240.0/max(d,1.0))*(1.0+uWarp*2.5+mph*0.4);vC=mix(uA,uB,smoothstep(0.6,1.0,aTint));vC=mix(vC,uB,max(mph,uWarp)*0.45);vAl=smoothstep(1.0,16.0,d)*smoothstep(120.0,46.0,d);vAl*=(1.0+uWarp*1.6+mph*0.6);}',
       fragmentShader: 'varying vec3 vC;varying float vAl;void main(){vec2 d=gl_PointCoord-0.5;float a=smoothstep(0.5,0.0,length(d));a*=a;gl_FragColor=vec4(vC,a*vAl);}'
     });
-    scene.add(new THREE.Points(pg, pmat));
+    const pointsMesh = new THREE.Points(pg, pmat); this._pMat = pmat; scene.add(pointsMesh);
 
     try { await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1200))]); } catch (e) {}
 
@@ -829,11 +849,120 @@ class Component extends DCLogic {
   loop() {
     this._raf = requestAnimationFrame(() => this.loop());
     const dt = Math.min(this._clock.getDelta(), 0.05);
-    this._pUniforms.uTime.value += dt;
-    this.p += (this.targetP - this.p) * 0.09;
+    // hyperspace warp factor + morph factor easing
+    this._warp = (this._warp || 0) + (((this._warpTarget || 0) - (this._warp || 0)) * 0.07);
+    this._morph = (this._morph || 0) + (((this._morphTarget || 0) - (this._morph || 0)) * 0.12);
+    if (this._pUniforms.uWarp) this._pUniforms.uWarp.value = this._warp;
+    if (this._pUniforms.uMorph) this._pUniforms.uMorph.value = this._morph;
+    // during the name reveal, draw particles on top so the word isn't occluded by a slab
+    if (this._pMat) this._pMat.depthTest = this._morph < 0.02;
+    // FOV punch during warp
+    if (this._camera) {
+      const fov = 48 + this._warp * 30;
+      if (Math.abs(this._camera.fov - fov) > 0.02) { this._camera.fov = fov; this._camera.updateProjectionMatrix(); }
+    }
+    // particle time, accelerated during warp
+    this._pUniforms.uTime.value += dt * (1 + this._warp * 5);
+    // camera position: warp auto-tour overrides scroll
+    if (this._tour && this._tour.active) {
+      this._tour.t += dt;
+      const kk = Math.min(this._tour.t / this._tour.dur, 1);
+      let pp;
+      if (kk < 0.5) pp = this._tour.from + (1 - this._tour.from) * this.ease(kk / 0.5);
+      else pp = 1 + (0 - 1) * this.ease((kk - 0.5) / 0.5);
+      this.p = pp; this.targetP = pp;
+      if (kk >= 1) { this._tour.active = false; this.readScroll(); }
+    } else {
+      this.p += (this.targetP - this.p) * 0.09;
+    }
     const m = this._mouse;
     m.x += (m.tx - m.x) * 0.05; m.y += (m.ty - m.y) * 0.05;
     this.renderFrame(this._pUniforms.uTime.value);
+  }
+
+  ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+  // ───────────────────────── easter eggs ─────────────────────────
+  // Type "marcus": the particle field coalesces into the giant word, holds, disperses.
+  triggerMarcus() {
+    if (!this._pGeo || this._marcusBusy) return;
+    this._marcusBusy = true;
+    const pts = this.sampleTextTargets('MARCUS');
+    const aT = this._aTarget, aM = this._aMorph, N = this._pCount;
+    const camZ = this._camera ? this._camera.position.z : this.VIEW_DIST;
+    const cx = this.PANEL_X * 0.18, cy = 0, cz = camZ - 30;
+    for (let i = 0; i < N; i++) aM[i] = 0;
+    const K = Math.min(pts.length, N);
+    for (let i = 0; i < K; i++) {
+      const t = pts[i];
+      aT[i * 3] = cx + t.x; aT[i * 3 + 1] = cy + t.y; aT[i * 3 + 2] = cz + (Math.random() * 2 - 1) * 0.7;
+      aM[i] = 1;
+    }
+    this._pGeo.attributes.aTarget.needsUpdate = true;
+    this._pGeo.attributes.aMorph.needsUpdate = true;
+    this._morphTarget = 1;
+    this.showToast('<span style="font-family:\'Newsreader\',serif;font-style:italic;font-size:26px;color:#ede1cf;">Hey — it\'s Marcus.</span><br><span style="font-size:10.5px;letter-spacing:0.26em;text-transform:uppercase;color:#8d6e2e;margin-top:6px;display:inline-block;">thanks for stopping by</span>', 2600);
+    clearTimeout(this._mT1); this._mT1 = setTimeout(() => { this._morphTarget = 0; }, 2300);
+    clearTimeout(this._mT2); this._mT2 = setTimeout(() => { this._marcusBusy = false; }, 3700);
+  }
+
+  // Sample white pixels of rendered text → world-space {x,y} points (shuffled).
+  sampleTextTargets(str) {
+    const cw = 1500, ch = 360, W = 33, H = 8;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const x = c.getContext('2d');
+    x.fillStyle = '#000'; x.fillRect(0, 0, cw, ch);
+    x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = '700 250px "JetBrains Mono", monospace';
+    x.fillText(str, cw / 2, ch / 2);
+    const data = x.getImageData(0, 0, cw, ch).data;
+    const pts = [];
+    for (let y = 0; y < ch; y += 5) {
+      for (let xx = 0; xx < cw; xx += 5) {
+        if (data[(y * cw + xx) * 4] > 120) pts.push({ x: (xx / cw - 0.5) * W, y: -(y / ch - 0.5) * H });
+      }
+    }
+    for (let i = pts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = pts[i]; pts[i] = pts[j]; pts[j] = t; }
+    return pts;
+  }
+
+  // Konami code: hyperspace warp + cinematic flythrough of every slab and back.
+  doWarp() {
+    if (this._warpBusy) return;
+    this._warpBusy = true;
+    this.flash();
+    this.showToast('<span style="font-size:12px;letter-spacing:0.34em;color:#c9a557;">&#8593;&#8593;&#8595;&#8595;&#8592;&#8594;&#8592;&#8594; B A</span><br><span style="font-family:\'Newsreader\',serif;font-style:italic;font-size:30px;color:#ede1cf;margin-top:4px;display:inline-block;">Hyperspace</span>', 2800);
+    this._warpTarget = 1;
+    this._tour = { active: true, t: 0, dur: 3.0, from: this.p };
+    clearTimeout(this._wT1); this._wT1 = setTimeout(() => { this._warpTarget = 0; }, 2700);
+    clearTimeout(this._wT2); this._wT2 = setTimeout(() => { this._warpBusy = false; }, 3500);
+  }
+
+  showToast(html, ms) {
+    const host = this.root || document.body;
+    let el = this._toastEl;
+    if (!el) {
+      el = document.createElement('div');
+      el.style.cssText = 'position:fixed;left:50%;top:17%;transform:translate(-50%,-12px);z-index:58;pointer-events:none;text-align:center;background:rgba(18,16,11,0.74);backdrop-filter:blur(9px);border:1px solid rgba(141,110,46,0.5);border-radius:14px;padding:18px 30px;box-shadow:0 24px 70px rgba(0,0,0,0.6);opacity:0;transition:opacity .45s ease,transform .45s ease;';
+      host.appendChild(el); this._toastEl = el;
+    }
+    el.innerHTML = html;
+    void el.offsetWidth;  // force reflow so the opacity transition fires (works even when rAF is throttled)
+    el.style.opacity = '1'; el.style.transform = 'translate(-50%,0)';
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translate(-50%,-12px)'; }, ms);
+  }
+
+  flash() {
+    const host = this.root || document.body;
+    let f = this._flashEl;
+    if (!f) {
+      f = document.createElement('div');
+      f.style.cssText = 'position:fixed;inset:0;z-index:57;pointer-events:none;background:radial-gradient(circle at 50% 50%, rgba(240,230,214,0.55), rgba(201,165,87,0.16) 42%, transparent 72%);opacity:0;';
+      host.appendChild(f); this._flashEl = f;
+    }
+    f.style.transition = 'opacity .08s ease'; f.style.opacity = '1';
+    setTimeout(() => { f.style.transition = 'opacity .75s ease'; f.style.opacity = '0'; }, 90);
   }
 }
 </script>
