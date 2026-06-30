@@ -48,6 +48,13 @@ const GIT_REMOTE  = process.env.GIT_REMOTE || 'origin';
 // Runs `git add content && git commit && git push`. Serialised so concurrent
 // edits don't trample each other; failures are logged, never thrown (a git
 // problem must not break the API response).
+// ── edit logging ─────────────────────────────────────────────────────────
+// Print a timestamped, human-readable line for every content change.
+function logEdit(action, id, extra) {
+  const ts = new Date().toISOString();
+  console.log('[edit] ' + ts + '  ' + action.toUpperCase().padEnd(7) + ' "' + id + '"' + (extra ? '  ' + extra : ''));
+}
+
 let gitChain = Promise.resolve();
 function run(cmd, args) {
   return new Promise((resolve) => {
@@ -251,6 +258,7 @@ async function handleApi(req, res, pathname, query) {
     if (body.coverDataUri) { const rel = saveCover(pid, body.coverDataUri, covers); if (rel) proj.cover = rel; }
     projects.push(proj);
     writeManifest(projects, filters); writeCovers(covers);
+    logEdit('create', proj.id, proj.title + (body.coverDataUri ? ' (+cover)' : ''));
     gitSync('admin: create project "' + proj.id + '"');
     return sendJSON(res, 201, { project: proj, projects });
   }
@@ -266,6 +274,7 @@ async function handleApi(req, res, pathname, query) {
     if (body.coverDataUri) { const rel = saveCover(id, body.coverDataUri, covers); if (rel) proj.cover = rel; }
     projects[idx] = proj;
     writeManifest(projects, filters); writeCovers(covers);
+    logEdit('update', id, proj.title + (body.coverDataUri ? ' (+cover)' : ''));
     gitSync('admin: update project "' + id + '"');
     return sendJSON(res, 200, { project: proj, projects });
   }
@@ -278,6 +287,7 @@ async function handleApi(req, res, pathname, query) {
     if (idx === -1) return sendJSON(res, 404, { error: 'not found' });
     projects[idx] = sanitizeProject(Object.assign({}, projects[idx], body.patch || {}), id);
     writeManifest(projects, filters);
+    logEdit(projects[idx].hidden ? 'hide' : 'show', id);
     gitSync('admin: ' + (projects[idx].hidden ? 'hide' : 'update') + ' project "' + id + '"');
     return sendJSON(res, 200, { project: projects[idx], projects });
   }
@@ -292,6 +302,7 @@ async function handleApi(req, res, pathname, query) {
     delete covers[id];
     removeCoverFiles(id);
     writeManifest(projects, filters); writeCovers(covers);
+    logEdit('delete', id);
     gitSync('admin: delete project "' + id + '"');
     return sendJSON(res, 200, { projects });
   }
