@@ -47,8 +47,9 @@ var PROJECTS = [
       "Canvas",
       "Neural Networks"
     ],
-    "dateCreated": "2021-09-02",
-    "accent": "#4f9e6b"
+    "dateCreated": "2025-09-01",
+    "accent": "#4f9e6b",
+    "hidden": false
   },
   {
     "id": "shazam",
