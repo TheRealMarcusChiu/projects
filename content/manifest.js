@@ -106,8 +106,9 @@ var PROJECTS = [
       "Canvas",
       "JavaScript"
     ],
-    "dateCreated": "2019-04-27",
-    "accent": "#4f93a8"
+    "dateCreated": "2025-08-14",
+    "accent": "#4f93a8",
+    "hidden": false
   },
   {
     "id": "spring-guides",
