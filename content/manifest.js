@@ -67,8 +67,9 @@ var PROJECTS = [
       "DSP",
       "JavaScript"
     ],
-    "dateCreated": "2022-06-21",
-    "accent": "#b7a23f"
+    "dateCreated": "2025-08-21",
+    "accent": "#b7a23f",
+    "hidden": false
   },
   {
     "id": "first-mention",
