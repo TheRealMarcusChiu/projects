@@ -167,7 +167,7 @@ class Component extends DCLogic {
       this.p = 0; this.targetP = 0;
       this._mouse = { x: 0, y: 0, tx: 0, ty: 0 };
       this.admin = false;
-      this.endpoint = (window.localStorage && localStorage.getItem('p3d_endpoint')) || '';
+      this.endpoint = this.loadEndpoint();
     }
     this.computeProjects();
     return true;
@@ -382,6 +382,34 @@ class Component extends DCLogic {
   }
 
   // ───────────────────────── admin: server API ─────────────────────────
+  // Per-site storage key: all these pages share one origin (git.marcuschiu.com),
+  // so scope the saved endpoint to the current path (…/projects/, …/tech/, …)
+  // — otherwise each site would clobber the others' endpoint in localStorage.
+  storageKey() {
+    let dir = '/';
+    try { dir = location.pathname.replace(/[^/]*$/, '') || '/'; } catch (e) {}
+    return 'p3d_endpoint:' + dir;
+  }
+
+  loadEndpoint() {
+    if (!window.localStorage) return '';
+    // prefer the per-site key; fall back to (and migrate) the old shared key
+    let v = localStorage.getItem(this.storageKey());
+    if (!v) {
+      const legacy = localStorage.getItem('p3d_endpoint');
+      if (legacy) { v = legacy; try { localStorage.setItem(this.storageKey(), legacy); } catch (e) {} }
+    }
+    return v || '';
+  }
+
+  saveEndpoint(base) {
+    if (!window.localStorage) return;
+    try {
+      if (base) localStorage.setItem(this.storageKey(), base);
+      else localStorage.removeItem(this.storageKey());
+    } catch (e) {}
+  }
+
   get apiBase() { return (this.endpoint || '').replace(/\/+$/, ''); }
 
   async api(method, pathPart, body) {
@@ -577,18 +605,18 @@ class Component extends DCLogic {
       if (x === 'close') return this.closeModal();
       if (x === 'ping' || x === 'savecfg') {
         const base = ep.replace(/\/+$/, '');
-        if (!base) { testEl.textContent = 'No endpoint set.'; testEl.style.color = '#c4756a'; if (x === 'savecfg') { this.endpoint = ''; if (window.localStorage) localStorage.removeItem('p3d_endpoint'); this.refreshStatus(); this.closeModal(); } return; }
+        if (!base) { testEl.textContent = 'No endpoint set.'; testEl.style.color = '#c4756a'; if (x === 'savecfg') { this.endpoint = ''; this.saveEndpoint(''); this.refreshStatus(); this.closeModal(); } return; }
         testEl.textContent = 'Pinging\u2026'; testEl.style.color = '#8b8171';
         try {
           const res = await fetch(base + '/api/health'); if (!res.ok) throw new Error('HTTP ' + res.status);
           testEl.textContent = '\u2713 Connected'; testEl.style.color = '#7fb98a';
           if (x === 'savecfg') {
-            this.endpoint = base; if (window.localStorage) localStorage.setItem('p3d_endpoint', base);
+            this.endpoint = base; this.saveEndpoint(base);
             await this.syncFromServer(); this.applyData(); this.closeModal();
           }
         } catch (err) {
           testEl.textContent = '\u2717 Could not reach ' + base; testEl.style.color = '#c4756a';
-          if (x === 'savecfg') { this.endpoint = base; if (window.localStorage) localStorage.setItem('p3d_endpoint', base); this.refreshStatus(); }
+          if (x === 'savecfg') { this.endpoint = base; this.saveEndpoint(base); this.refreshStatus(); }
         }
       }
     };

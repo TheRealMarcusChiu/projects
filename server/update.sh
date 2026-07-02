@@ -2,6 +2,6 @@
 
 ssh my-websites << EOF
   cd /root/projects
-  git pull
+  git pull --rebase
   systemctl restart projects-admin.service
 EOF
